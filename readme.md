@@ -4,6 +4,10 @@
 
 I will implement a wrapper for opengl functions to make them more "rusty".
 
+##### Shaders
+
+Shaders should be loadable easily with a single path.
+
 ### ECS (entity component system)
 
 Using legion-ecs.

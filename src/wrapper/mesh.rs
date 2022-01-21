@@ -4,6 +4,7 @@ use nalgebra::Vector3;
 use std::error::Error;
 use std::mem::size_of;
 use std::os::raw::c_void;
+use std::ptr;
 
 #[repr(C)]
 pub struct Vertex {
@@ -44,6 +45,19 @@ impl Mesh {
 		}
 
 		Ok(mesh)
+	}
+
+	pub fn draw(&self) {
+		unsafe {
+			gl::BindVertexArray(self.vao);
+			gl::DrawElements(
+				gl::TRIANGLES,
+				self.indices.len() as i32,
+				gl::UNSIGNED_INT,
+				ptr::null(),
+			);
+			gl::BindVertexArray(0);
+		}
 	}
 
 	unsafe fn setup(&mut self) {

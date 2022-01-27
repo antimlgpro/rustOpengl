@@ -40,9 +40,7 @@ impl Mesh {
 			ebo: 0,
 		};
 
-		unsafe {
-			mesh.setup();
-		}
+		mesh.setup();
 
 		Ok(mesh)
 	}
@@ -60,47 +58,49 @@ impl Mesh {
 		}
 	}
 
-	unsafe fn setup(&mut self) {
-		gl::GenVertexArrays(1, &mut self.vao);
-		gl::GenBuffers(1, &mut self.vbo);
-		gl::GenBuffers(1, &mut self.ebo);
+	fn setup(&mut self) {
+		unsafe {
+			gl::GenVertexArrays(1, &mut self.vao);
+			gl::GenBuffers(1, &mut self.vbo);
+			gl::GenBuffers(1, &mut self.ebo);
 
-		gl::BindVertexArray(self.vao);
-		// load data into vertex buffers
-		gl::BindBuffer(gl::ARRAY_BUFFER, self.vbo);
+			gl::BindVertexArray(self.vao);
+			// load data into vertex buffers
+			gl::BindBuffer(gl::ARRAY_BUFFER, self.vbo);
 
-		let size = (self.vertices.len() * size_of::<Vertex>()) as isize;
-		let data = &self.vertices[0] as *const Vertex as *const c_void;
-		gl::BufferData(gl::ARRAY_BUFFER, size, data, gl::STATIC_DRAW);
+			let size = (self.vertices.len() * size_of::<Vertex>()) as isize;
+			let data = &self.vertices[0] as *const Vertex as *const c_void;
+			gl::BufferData(gl::ARRAY_BUFFER, size, data, gl::STATIC_DRAW);
 
-		gl::BindBuffer(gl::ELEMENT_ARRAY_BUFFER, self.ebo);
-		let size = (self.indices.len() * size_of::<u32>()) as isize;
-		let data = &self.indices[0] as *const u32 as *const c_void;
-		gl::BufferData(gl::ELEMENT_ARRAY_BUFFER, size, data, gl::STATIC_DRAW);
+			gl::BindBuffer(gl::ELEMENT_ARRAY_BUFFER, self.ebo);
+			let size = (self.indices.len() * size_of::<u32>()) as isize;
+			let data = &self.indices[0] as *const u32 as *const c_void;
+			gl::BufferData(gl::ELEMENT_ARRAY_BUFFER, size, data, gl::STATIC_DRAW);
 
-		// set the vertex attribute pointers
-		let size = size_of::<Vertex>() as i32;
-		// vertex Positions
-		gl::EnableVertexAttribArray(0);
-		gl::VertexAttribPointer(
-			0,
-			3,
-			gl::FLOAT,
-			gl::FALSE,
-			size,
-			offset_of!(Vertex, position) as *const c_void,
-		);
-		// vertex normals
-		gl::EnableVertexAttribArray(1);
-		gl::VertexAttribPointer(
-			1,
-			3,
-			gl::FLOAT,
-			gl::FALSE,
-			size,
-			offset_of!(Vertex, normal) as *const c_void,
-		);
+			// set the vertex attribute pointers
+			let size = size_of::<Vertex>() as i32;
+			// vertex Positions
+			gl::EnableVertexAttribArray(0);
+			gl::VertexAttribPointer(
+				0,
+				3,
+				gl::FLOAT,
+				gl::FALSE,
+				size,
+				offset_of!(Vertex, position) as *const c_void,
+			);
+			// vertex normals
+			gl::EnableVertexAttribArray(1);
+			gl::VertexAttribPointer(
+				1,
+				3,
+				gl::FLOAT,
+				gl::FALSE,
+				size,
+				offset_of!(Vertex, normal) as *const c_void,
+			);
 
-		gl::BindVertexArray(0);
+			gl::BindVertexArray(0);
+		}
 	}
 }

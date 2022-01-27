@@ -12,3 +12,7 @@ pub fn to_cstring(s: String) -> Result<CString, Box<dyn Error>> {
 	let cst = CString::new(s.as_bytes())?;
 	Ok(cst)
 }
+
+pub fn radians(num: f32) -> f32 {
+	return num.to_radians();
+}

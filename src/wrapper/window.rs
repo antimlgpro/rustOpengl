@@ -104,6 +104,12 @@ impl Window {
 		return self;
 	}
 
+	pub fn gl_enable(&self, e: gl::types::GLenum) {
+		unsafe {
+			gl::Enable(e);
+		}
+	}
+
 	pub fn get_frame(&self) -> Frame {
 		Frame::new()
 	}

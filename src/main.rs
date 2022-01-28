@@ -1,16 +1,18 @@
 #![allow(dead_code)]
 extern crate gl;
 extern crate glfw;
+extern crate nalgebra_glm as glm;
 
 use legion::*;
 use nalgebra::{vector, Matrix4, Rotation3, Vector3};
+use std::mem::size_of;
 
 mod components;
 mod util;
 mod wrapper;
 use components::*;
 use util::radians;
-use wrapper::{Mesh, Shader, Vertex, Window, WindowSettings};
+use wrapper::{Mesh, Shader, Ubo, Vertex, Window, WindowSettings};
 
 fn game_loop() {}
 
@@ -48,14 +50,14 @@ fn main() {
 
 	let mut world = legion::World::default();
 
-	let shader = Shader::new("shaders/light.vs", "shaders/light.fs").unwrap();
-	let light_shader = Shader::new("shaders/advanced.vs", "shaders/advanced.fs").unwrap();
+	let shader = Shader::new("shaders/ubo.vs", "shaders/ubo.fs").unwrap();
+	let shader2 = Shader::new("shaders/advanced.vs", "shaders/advanced.fs").unwrap();
 	let mesh = Mesh::new(vert, ind).unwrap();
 
 	let player = world.push((
 		Transform {
-			position: vector![0.0, 2.0, -3.0],
-			rotation: Rotation3::from_euler_angles(radians(35.0), 0.0, 0.0),
+			position: vector![0.0, 3.0, -4.5],
+			rotation: Rotation3::from_euler_angles(radians(20.0), 0.0, 0.0),
 			..Transform::default()
 		},
 		Camera {
@@ -64,14 +66,24 @@ fn main() {
 		},
 	));
 
-	let mut model_transform = Transform {
+	let mut cube1_transform = Transform {
 		position: vector![0.0, 0.0, 0.0],
 		..Transform::default()
 	};
 
-	let mut light_transform = Transform {
-		position: vector![-3.0, 0.0, 3.0],
+	let light_transform = Transform {
+		position: vector![0.0, 4.0, 0.0],
 		..Transform::default()
+	};
+
+	let point = 0;
+	Ubo::set_uniform_block(&shader, "Matrices", point);
+	Ubo::set_uniform_block(&shader2, "Matrices", point);
+	let ubo_matrices = match Ubo::create_buffer(point, 2 * size_of::<Matrix4<f32>>()) {
+		Ok(e) => e,
+		Err(e) => {
+			panic!("Create_buffer: {}", e);
+		}
 	};
 
 	while !window.should_close() {
@@ -85,36 +97,33 @@ fn main() {
 
 		let mut query = <(&mut Transform, &mut Camera)>::query();
 		for (transform, camera) in query.iter_mut(&mut world) {
-			model_transform.rotate_euler(0.0, radians(90.0) * delta_time, 0.0);
-
-			let mut light_pos = light_transform.position;
-			light_pos.x = 1.0 + (time.last_frame as f32).sin() * 2.0;
-			light_pos.y = (time.last_frame as f32 / 2.0).sin() * 1.0;
-			light_transform.position = light_pos;
-
 			transform.update_directions();
-			camera.update(transform);
-			let model = model_transform.get_matrix();
+			camera.update_view(transform);
+
+			ubo_matrices.set_data_mat4(0, size_of::<Matrix4<f32>>(), camera.projection);
+			ubo_matrices.set_data_mat4(
+				size_of::<Matrix4<f32>>(),
+				size_of::<Matrix4<f32>>(),
+				camera.view,
+			);
+
+			cube1_transform.rotate_euler(0.0, radians(90.0) * delta_time, 0.0);
+			let model = cube1_transform.get_matrix();
 
 			shader.use_program();
 			shader.set_vec3("object_color", 0.0, 0.49, 1.0);
 			shader.set_vec3("light_color", 1.0, 1.0, 1.0);
 			shader.set_vector3("light_pos", &light_transform.position);
-			shader.set_vector3("view_pos", &transform.position);
-
-			shader.set_mat4("proj", &camera.projection);
-			shader.set_mat4("view", &camera.view);
+			shader.set_vector3("view_pos", &vector!(0.0, 0.0, 0.0));
 			shader.set_mat4("model", &model);
-
 			mesh.draw();
 
-			let light_model = light_transform.get_matrix();
+			shader2.use_program();
+			let mut model2 = light_transform.get_matrix();
+			model2 = glm::scale(&model2, &vector!(0.5, 0.5, 0.5));
 
-			light_shader.use_program();
-			light_shader.set_mat4("proj", &camera.projection);
-			light_shader.set_mat4("view", &camera.view);
-			light_shader.set_mat4("model", &light_model);
-
+			shader2.set_vec3("object_color", 0.9, 0.9, 0.9);
+			shader2.set_mat4("model", &model2);
 			mesh.draw();
 		}
 

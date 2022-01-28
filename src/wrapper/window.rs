@@ -73,7 +73,7 @@ pub struct Window {
 
 impl Window {
 	pub fn new(settings: WindowSettings) -> Window {
-		let glfw = glfw::init(glfw::FAIL_ON_ERRORS).unwrap();
+		let mut glfw = glfw::init(glfw::FAIL_ON_ERRORS).unwrap();
 
 		// Create a windowed mode window and its OpenGL context
 		let (window, events) = glfw
@@ -84,6 +84,12 @@ impl Window {
 				glfw::WindowMode::Windowed,
 			)
 			.expect("Failed to create GLFW window.");
+
+		// Provides highest available version
+		glfw.window_hint(glfw::WindowHint::ContextVersion(1, 0));
+		glfw.window_hint(glfw::WindowHint::OpenGlProfile(
+			glfw::OpenGlProfileHint::Core,
+		));
 
 		Window {
 			settings,

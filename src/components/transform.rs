@@ -1,3 +1,4 @@
+use crate::util::radians;
 use nalgebra::{Matrix4, Rotation3, Scale3, Vector3};
 
 pub struct Transform {
@@ -29,6 +30,12 @@ impl Transform {
 		mat = mat * &self.rotation.to_homogeneous();
 
 		return mat;
+	}
+
+	pub fn update_directions(&mut self) {
+		self.forward = self.rotation.transform_vector(&Vector3::z()).normalize();
+		self.right = self.forward.cross(&Vector3::y()).normalize();
+		self.up = self.right.cross(&self.forward).normalize();
 	}
 
 	pub fn translate(&mut self, tr: Vector3<f32>) {

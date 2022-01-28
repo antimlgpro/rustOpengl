@@ -1,11 +1,11 @@
 extern crate gl;
 use self::gl::types::*;
-use crate::util::{load_to_string, to_cstring};
+use crate::util::{create_whitespace_cstring_with_len, load_to_string, to_cstring};
 use nalgebra::{Matrix4, Vector3};
-use std::{cmp::max, error::Error, ffi::CString, fmt, fmt::Display, ptr, str};
+use std::{cmp::max, ffi::CString, fmt, fmt::Display, ptr, str};
 
 #[derive(Debug, Clone)]
-enum ShaderError {
+pub enum ShaderError {
 	Compile(String),
 	Linking(String),
 }
@@ -26,7 +26,7 @@ enum ShaderType {
 }
 
 pub struct Shader {
-	id: u32,
+	pub id: u32,
 }
 
 impl Shader {
@@ -34,7 +34,7 @@ impl Shader {
 	///
 	/// * `v_src_path` - String path to vertex shader
 	/// * `f_src_path` - String path to fragment shader
-	pub fn new(v_src_path: &str, f_src_path: &str) -> Result<Shader, Box<dyn Error>> {
+	pub fn new(v_src_path: &str, f_src_path: &str) -> Result<Shader, ShaderError> {
 		let mut shader = Shader { id: 0 };
 
 		let vertex_src = to_cstring(load_to_string(v_src_path).unwrap()).unwrap();
@@ -45,31 +45,33 @@ impl Shader {
 			let vertex = gl::CreateShader(gl::VERTEX_SHADER);
 			gl::ShaderSource(vertex, 1, &vertex_src.as_ptr(), ptr::null());
 			gl::CompileShader(vertex);
-			shader
-				.check_compiler_errors(vertex, ShaderType::VERTEX)
-				.unwrap_or_else(|e| {
-					eprintln!("{}", e);
-				});
+			match shader.check_shader_errors(vertex) {
+				Some(e) => {
+					println!("Vertex: {}", e)
+				}
+				None => {}
+			}
 
 			let fragment = gl::CreateShader(gl::FRAGMENT_SHADER);
 			gl::ShaderSource(fragment, 1, &fragment_src.as_ptr(), ptr::null());
 			gl::CompileShader(fragment);
-			shader
-				.check_compiler_errors(vertex, ShaderType::FRAGMENT)
-				.unwrap_or_else(|e| {
-					eprintln!("{}", e);
-				});
+			match shader.check_shader_errors(fragment) {
+				Some(e) => {
+					println!("Fragment: {}", e)
+				}
+				None => {}
+			}
 
 			let id = gl::CreateProgram();
 			gl::AttachShader(id, vertex);
 			gl::AttachShader(id, fragment);
 			gl::LinkProgram(id);
-			shader
-				.check_compiler_errors(id, ShaderType::PROGRAM)
-				.unwrap_or_else(|e| {
-					eprintln!("{}", e);
-				});
-
+			match shader.check_program_errors(id) {
+				Some(e) => {
+					println!("Program: {}", e);
+				}
+				None => {}
+			}
 			gl::DeleteShader(vertex);
 			gl::DeleteShader(fragment);
 
@@ -115,7 +117,56 @@ impl Shader {
 		}
 	}
 
-	fn check_compiler_errors(&self, shader: u32, type_: ShaderType) -> Result<(), ShaderError> {
+	fn check_shader_errors(&self, id: u32) -> Option<String> {
+		unsafe {
+			let mut success: gl::types::GLint = 1;
+			gl::GetShaderiv(id, gl::COMPILE_STATUS, &mut success);
+
+			if success == 0 {
+				let mut len: gl::types::GLint = 0;
+				gl::GetShaderiv(id, gl::INFO_LOG_LENGTH, &mut len);
+
+				let error = create_whitespace_cstring_with_len(len as usize);
+
+				gl::GetShaderInfoLog(
+					id,
+					len,
+					std::ptr::null_mut(),
+					error.as_ptr() as *mut gl::types::GLchar,
+				);
+
+				return Some(error.to_string_lossy().into_owned());
+			}
+		}
+
+		None
+	}
+
+	fn check_program_errors(&self, id: u32) -> Option<String> {
+		unsafe {
+			let mut success: gl::types::GLint = 1;
+			gl::GetProgramiv(id, gl::LINK_STATUS, &mut success);
+
+			if success == 0 {
+				let mut len: gl::types::GLint = 0;
+				gl::GetProgramiv(id, gl::INFO_LOG_LENGTH, &mut len);
+
+				let error = create_whitespace_cstring_with_len(len as usize);
+
+				gl::GetProgramInfoLog(
+					id,
+					len,
+					std::ptr::null_mut(),
+					error.as_ptr() as *mut gl::types::GLchar,
+				);
+
+				return Some(error.to_string_lossy().into_owned());
+			}
+		}
+		return None;
+	}
+
+	fn check_compiler_errors(&self, shader: u32, type_: ShaderType) -> Option<ShaderError> {
 		unsafe {
 			let mut shader_iv = gl::FALSE as GLint;
 			let mut program_iv = gl::FALSE as GLint;
@@ -144,7 +195,7 @@ impl Shader {
 							error.to_string_lossy().into_owned()
 						);
 
-						return Err(ShaderError::Compile(err));
+						return Some(ShaderError::Compile(err));
 					}
 				}
 				ShaderType::FRAGMENT => {
@@ -159,7 +210,7 @@ impl Shader {
 							"Fragment shader compilation error: {}",
 							error.to_string_lossy().into_owned()
 						);
-						return Err(ShaderError::Compile(err));
+						return Some(ShaderError::Compile(err));
 					}
 				}
 				ShaderType::PROGRAM => {
@@ -171,16 +222,16 @@ impl Shader {
 							error.as_ptr() as *mut GLchar,
 						);
 						let err = format!(
-							"Program linking error: '{0}'",
+							"Program linking error: '{}'",
 							error.to_string_lossy().into_owned()
 						);
 
-						return Err(ShaderError::Linking(err));
+						return Some(ShaderError::Linking(err));
 					}
 				}
 			}
 
-			Ok(())
+			None
 		}
 	}
 }

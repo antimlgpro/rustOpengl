@@ -49,19 +49,6 @@ impl Time {
 	}
 }
 
-/*
-impl Default for Time {
-	fn default() -> Time {
-		Time {
-			time: 0.0,
-			delta_time: 0.0,
-			frame_count: 0,
-			fps: 0.0,
-			last_frame: 0.0,
-		}
-	}
-}*/
-
 pub struct Window {
 	pub settings: WindowSettings,
 	pub time: Time,
@@ -142,4 +129,13 @@ impl Window {
 	}
 
 	// ----------- GLFW functions -----------
+}
+
+impl Window {
+	pub fn default_setup(self) -> Window {
+		let wind = self.init();
+		wind.gl_enable(gl::DEPTH_TEST);
+
+		wind
+	}
 }

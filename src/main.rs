@@ -12,15 +12,23 @@ mod util;
 mod wrapper;
 use components::*;
 use util::radians;
-use wrapper::{Mesh, Shader, Ubo, Vertex, Window, WindowSettings};
+use wrapper::{Mesh, Shader, Ubo, UniformManager, Vertex, Window, WindowSettings};
 
-fn game_loop() {}
+fn render_model(tf: &Transform, rend: &Renderable, unif_man: &mut UniformManager) {
+	let mesh = &rend.mesh;
+	let shader = &rend.material.shader;
+	let model = tf.get_matrix();
 
-fn main() {
-	let mut window = Window::new(WindowSettings::default()).init();
+	shader.use_program();
+	shader.set_mat4("model", &model);
 
-	window.gl_enable(gl::DEPTH_TEST);
+	rend.material.set_uniforms_vec3(unif_man);
+	rend.material.set_uniforms_mat4(unif_man);
 
+	mesh.draw();
+}
+
+fn gen_cube() -> (Vec<Vertex>, Vec<u32>) {
 	let vertices: [f32; 8 * 3] = [
 		-1.0, -1.0, -1.0, 1.0, -1.0, -1.0, 1.0, 1.0, -1.0, -1.0, 1.0, -1.0, -1.0, -1.0, 1.0, 1.0,
 		-1.0, 1.0, 1.0, 1.0, 1.0, -1.0, 1.0, 1.0,
@@ -48,11 +56,38 @@ fn main() {
 		});
 	}
 
+	return (vert, ind);
+}
+
+fn main() {
+	let mut window = Window::new(WindowSettings::default()).default_setup();
 	let mut world = legion::World::default();
+	let mut uniform_man = UniformManager::new();
 
 	let shader = Shader::new("shaders/ubo.vs", "shaders/ubo.fs").unwrap();
-	let shader2 = Shader::new("shaders/advanced.vs", "shaders/advanced.fs").unwrap();
+
+	uniform_man.add_uniform("object_color", vector!(0.0, 0.49, 0.1));
+	uniform_man.add_uniform("light_color", vector!(1.0, 1.0, 1.0));
+	uniform_man.add_uniform("light_pos", vector!(0.0, 5.0, 0.0));
+	uniform_man.add_uniform("view_pos", vector!(0.0, 0.0, 0.0));
+
+	let (vert, ind) = gen_cube();
 	let mesh = Mesh::new(vert, ind).unwrap();
+
+	let point = 0;
+	Ubo::set_uniform_block(&shader, "Matrices", point);
+	//Ubo::set_uniform_block(&shader2, "Matrices", point);
+	let ubo_matrices = match Ubo::create_buffer(point, 2 * size_of::<Matrix4<f32>>()) {
+		Ok(e) => e,
+		Err(e) => {
+			panic!("Create_buffer: {}", e);
+		}
+	};
+
+	let test_mat = Material::new(
+		shader,
+		vec!["object_color", "light_color", "light_pos", "view_pos"],
+	);
 
 	let player = world.push((
 		Transform {
@@ -66,25 +101,16 @@ fn main() {
 		},
 	));
 
-	let mut cube1_transform = Transform {
-		position: vector![0.0, 0.0, 0.0],
-		..Transform::default()
-	};
-
-	let light_transform = Transform {
-		position: vector![0.0, 4.0, 0.0],
-		..Transform::default()
-	};
-
-	let point = 0;
-	Ubo::set_uniform_block(&shader, "Matrices", point);
-	Ubo::set_uniform_block(&shader2, "Matrices", point);
-	let ubo_matrices = match Ubo::create_buffer(point, 2 * size_of::<Matrix4<f32>>()) {
-		Ok(e) => e,
-		Err(e) => {
-			panic!("Create_buffer: {}", e);
-		}
-	};
+	let test = world.push((
+		Transform {
+			position: vector![0.0, 0.0, 0.0],
+			..Transform::default()
+		},
+		Renderable {
+			mesh: mesh,
+			material: test_mat,
+		},
+	));
 
 	while !window.should_close() {
 		window.pre_loop();
@@ -96,9 +122,9 @@ fn main() {
 		let delta_time = time.delta_time;
 
 		let mut query = <(&mut Transform, &mut Camera)>::query();
-		for (transform, camera) in query.iter_mut(&mut world) {
-			transform.update_directions();
-			camera.update_view(transform);
+		for (tf, camera) in query.iter_mut(&mut world) {
+			tf.update_directions();
+			camera.update_view(tf);
 
 			ubo_matrices.set_data_mat4(0, size_of::<Matrix4<f32>>(), camera.projection);
 			ubo_matrices.set_data_mat4(
@@ -107,27 +133,14 @@ fn main() {
 				camera.view,
 			);
 
-			cube1_transform.rotate_euler(0.0, radians(90.0) * delta_time, 0.0);
-			let model = cube1_transform.get_matrix();
-
-			shader.use_program();
-			shader.set_vec3("object_color", 0.0, 0.49, 1.0);
-			shader.set_vec3("light_color", 1.0, 1.0, 1.0);
-			shader.set_vector3("light_pos", &light_transform.position);
-			shader.set_vector3("view_pos", &vector!(0.0, 0.0, 0.0));
-			shader.set_mat4("model", &model);
-			mesh.draw();
-
-			shader2.use_program();
-			let mut model2 = light_transform.get_matrix();
-			model2 = glm::scale(&model2, &vector!(0.5, 0.5, 0.5));
-
-			shader2.set_vec3("object_color", 0.9, 0.9, 0.9);
-			shader2.set_mat4("model", &model2);
-			mesh.draw();
+			uniform_man.set_uniform("view_pos", tf.position);
 		}
 
-		game_loop();
+		let mut query = <(&mut Transform, &mut Renderable)>::query();
+		for (transform, renderable) in query.iter_mut(&mut world) {
+			render_model(transform, renderable, &mut uniform_man);
+		}
+
 		window.post_loop();
 	}
 }

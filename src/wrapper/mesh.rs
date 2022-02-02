@@ -6,6 +6,7 @@ use std::mem::size_of;
 use std::os::raw::c_void;
 use std::ptr;
 
+#[derive(Clone)]
 #[repr(C)]
 pub struct Vertex {
 	pub position: Vector3<f32>,
@@ -21,6 +22,7 @@ impl Default for Vertex {
 	}
 }
 
+#[derive(Clone)]
 pub struct Mesh {
 	pub vertices: Vec<Vertex>,
 	pub indices: Vec<u32>,

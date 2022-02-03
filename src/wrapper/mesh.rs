@@ -1,12 +1,15 @@
 extern crate gl;
 use memoffset::offset_of;
 use nalgebra::Vector3;
-use std::error::Error;
+use std::fmt;
+use std::fmt::Display;
 use std::mem::size_of;
 use std::os::raw::c_void;
 use std::ptr;
 
-#[derive(Clone)]
+use crate::wrapper::GLError;
+
+#[derive(Clone, Debug)]
 #[repr(C)]
 pub struct Vertex {
 	pub position: Vector3<f32>,
@@ -22,6 +25,17 @@ impl Default for Vertex {
 	}
 }
 
+impl Display for Vertex {
+	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+		write!(
+			f,
+			"Positions: {} \
+			Normal: {}",
+			self.position, self.normal
+		)
+	}
+}
+
 #[derive(Clone)]
 pub struct Mesh {
 	pub vertices: Vec<Vertex>,
@@ -32,8 +46,9 @@ pub struct Mesh {
 	ebo: u32,
 }
 
+// todo: Implement GLError checking
 impl Mesh {
-	pub fn new(vertices: Vec<Vertex>, indices: Vec<u32>) -> Result<Mesh, Box<dyn Error>> {
+	pub fn new(vertices: Vec<Vertex>, indices: Vec<u32>) -> Result<Mesh, GLError> {
 		let mut mesh = Mesh {
 			vertices,
 			indices,

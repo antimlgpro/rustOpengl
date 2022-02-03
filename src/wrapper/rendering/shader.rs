@@ -25,8 +25,15 @@ enum ShaderType {
 	PROGRAM,
 }
 
+#[derive(Copy)]
 pub struct Shader {
 	pub id: u32,
+}
+
+impl Clone for Shader {
+	fn clone(&self) -> Shader {
+		*self
+	}
 }
 
 impl Shader {

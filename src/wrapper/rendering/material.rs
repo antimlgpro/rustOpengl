@@ -11,6 +11,7 @@ impl ValidTypes for Vector3<f32> {
 	}
 }
 
+#[derive(Clone)]
 pub struct Material {
 	pub shader: Shader,
 	pub uniforms: HashMap<String, Vector3<f32>>,

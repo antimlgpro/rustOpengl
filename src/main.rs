@@ -12,7 +12,9 @@ mod util;
 mod wrapper;
 use components::*;
 use util::radians;
-use wrapper::{error_callback, Loader, Shader, Ubo, UniformManager, Window, WindowSettings};
+use wrapper::{
+	error_callback, Loader, Material, Shader, Ubo, UniformManager, Window, WindowSettings,
+};
 
 #[system(for_each)]
 fn render_model(tf: &Transform, rend: &Renderable, #[resource] unif_man: &mut UniformManager) {
@@ -22,8 +24,7 @@ fn render_model(tf: &Transform, rend: &Renderable, #[resource] unif_man: &mut Un
 
 	shader.use_program();
 	shader.set_mat4("model", &model);
-	rend.material.set_uniforms_vec3(unif_man);
-	rend.material.set_uniforms_mat4(unif_man);
+	rend.material.set_all(unif_man);
 
 	mesh.draw();
 }
@@ -61,7 +62,6 @@ fn main() {
 
 	let shader = Shader::new("shaders/ubo.vs", "shaders/ubo.fs").unwrap();
 	let mut uniform_man = UniformManager::new();
-	uniform_man.add_uniform("object_color", vector!(0.0, 0.49, 0.1));
 	uniform_man.add_uniform("light_color", vector!(1.0, 1.0, 1.0));
 	uniform_man.add_uniform("light_pos", vector!(0.0, 5.0, 0.0));
 	uniform_man.add_uniform("view_pos", vector!(0.0, 0.0, 0.0));
@@ -88,7 +88,8 @@ fn main() {
 
 	let test_mat = Material::new(
 		shader,
-		vec!["object_color", "light_color", "light_pos", "view_pos"],
+		vec![("object_color", vector!(0.0, 0.49, 0.1))],
+		vec!["light_color", "light_pos", "view_pos"],
 	);
 
 	let _player = world.push((

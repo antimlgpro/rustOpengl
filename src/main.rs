@@ -14,18 +14,38 @@ use components::*;
 use util::radians;
 use wrapper::{Mesh, Shader, Ubo, UniformManager, Vertex, Window, WindowSettings};
 
-fn render_model(tf: &Transform, rend: &Renderable, unif_man: &mut UniformManager) {
+#[system(for_each)]
+fn render_model(tf: &Transform, rend: &Renderable, #[resource] unif_man: &mut UniformManager) {
 	let mesh = &rend.mesh;
 	let shader = &rend.material.shader;
 	let model = tf.get_matrix();
 
 	shader.use_program();
 	shader.set_mat4("model", &model);
-
 	rend.material.set_uniforms_vec3(unif_man);
 	rend.material.set_uniforms_mat4(unif_man);
 
 	mesh.draw();
+}
+
+#[system(for_each)]
+fn update_camera(
+	tf: &mut Transform,
+	cam: &mut Camera,
+	#[resource] unif_man: &mut UniformManager,
+	#[resource] ubo_mat: &mut Ubo,
+) {
+	tf.update_directions();
+	cam.update_view(tf);
+
+	ubo_mat.set_data_mat4(0, size_of::<Matrix4<f32>>(), cam.projection);
+	ubo_mat.set_data_mat4(
+		size_of::<Matrix4<f32>>(),
+		size_of::<Matrix4<f32>>(),
+		cam.view,
+	);
+
+	unif_man.set_uniform("view_pos", tf.position);
 }
 
 fn gen_cube() -> (Vec<Vertex>, Vec<u32>) {
@@ -101,7 +121,7 @@ fn main() {
 		},
 	));
 
-	let test = world.push((
+	let cube = world.push((
 		Transform {
 			position: vector![0.0, 0.0, 0.0],
 			..Transform::default()
@@ -112,6 +132,15 @@ fn main() {
 		},
 	));
 
+	let mut resources = Resources::default();
+	resources.insert(uniform_man);
+	resources.insert(ubo_matrices);
+
+	let mut schedule = Schedule::builder()
+		.add_thread_local(update_camera_system())
+		.add_thread_local(render_model_system())
+		.build();
+
 	while !window.should_close() {
 		window.pre_loop();
 		let frame = window.get_frame();
@@ -121,25 +150,12 @@ fn main() {
 		let time = window.get_time();
 		let delta_time = time.delta_time;
 
-		let mut query = <(&mut Transform, &mut Camera)>::query();
-		for (tf, camera) in query.iter_mut(&mut world) {
-			tf.update_directions();
-			camera.update_view(tf);
-
-			ubo_matrices.set_data_mat4(0, size_of::<Matrix4<f32>>(), camera.projection);
-			ubo_matrices.set_data_mat4(
-				size_of::<Matrix4<f32>>(),
-				size_of::<Matrix4<f32>>(),
-				camera.view,
-			);
-
-			uniform_man.set_uniform("view_pos", tf.position);
+		if let Some(mut entry) = world.entry(cube) {
+			let tf = entry.get_component_mut::<Transform>().unwrap();
+			tf.rotate_euler(0.0, radians(90.0) * delta_time, 0.0);
 		}
 
-		let mut query = <(&mut Transform, &mut Renderable)>::query();
-		for (transform, renderable) in query.iter_mut(&mut world) {
-			render_model(transform, renderable, &mut uniform_man);
-		}
+		schedule.execute(&mut world, &mut resources);
 
 		window.post_loop();
 	}

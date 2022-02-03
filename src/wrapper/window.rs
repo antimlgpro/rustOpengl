@@ -97,12 +97,6 @@ impl Window {
 		return self;
 	}
 
-	pub fn gl_enable(&self, e: gl::types::GLenum) {
-		unsafe {
-			gl::Enable(e);
-		}
-	}
-
 	pub fn get_frame(&self) -> Frame {
 		Frame::new()
 	}
@@ -137,5 +131,19 @@ impl Window {
 		wind.gl_enable(gl::DEPTH_TEST);
 
 		wind
+	}
+
+	pub fn gl_enable(&self, e: gl::types::GLenum) {
+		unsafe {
+			gl::Enable(e);
+		}
+	}
+
+	pub fn debug_message_callback(&self, call: gl::types::GLDEBUGPROC) {
+		unsafe {
+			self.gl_enable(gl::DEBUG_OUTPUT);
+			self.gl_enable(gl::DEBUG_OUTPUT_SYNCHRONOUS);
+			gl::DebugMessageCallback(call, std::ptr::null());
+		}
 	}
 }

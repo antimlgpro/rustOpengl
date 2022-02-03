@@ -1,3 +1,4 @@
+mod material;
 mod mesh;
 mod model_loader;
 mod shader;
@@ -7,6 +8,7 @@ mod uniform_manager;
 pub use mesh::*;
 pub use model_loader::*;
 
+pub use material::*;
 pub use shader::*;
 pub use ubo::*;
 

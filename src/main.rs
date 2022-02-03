@@ -12,7 +12,7 @@ mod util;
 mod wrapper;
 use components::*;
 use util::radians;
-use wrapper::{Loader, Shader, Ubo, UniformManager, Window, WindowSettings};
+use wrapper::{error_callback, Loader, Shader, Ubo, UniformManager, Window, WindowSettings};
 
 #[system(for_each)]
 fn render_model(tf: &Transform, rend: &Renderable, #[resource] unif_man: &mut UniformManager) {
@@ -50,11 +50,17 @@ fn update_camera(
 
 fn main() {
 	let mut window = Window::new(WindowSettings::default()).default_setup();
+	window.debug_message_callback(Some(error_callback));
+
 	let mut world = legion::World::default();
-	let mut uniform_man = UniformManager::new();
+	let mut resources = Resources::default();
+	let mut schedule = Schedule::builder()
+		.add_thread_local(update_camera_system())
+		.add_thread_local(render_model_system())
+		.build();
 
 	let shader = Shader::new("shaders/ubo.vs", "shaders/ubo.fs").unwrap();
-
+	let mut uniform_man = UniformManager::new();
 	uniform_man.add_uniform("object_color", vector!(0.0, 0.49, 0.1));
 	uniform_man.add_uniform("light_color", vector!(1.0, 1.0, 1.0));
 	uniform_man.add_uniform("light_pos", vector!(0.0, 5.0, 0.0));
@@ -66,7 +72,6 @@ fn main() {
 			panic!("Loader: {}", e);
 		}
 	};
-
 	let mesh = loaded.remove(0);
 
 	let point = 0;
@@ -77,6 +82,9 @@ fn main() {
 			panic!("Create_buffer: {}", e);
 		}
 	};
+
+	resources.insert(uniform_man);
+	resources.insert(ubo_matrices);
 
 	let test_mat = Material::new(
 		shader,
@@ -105,15 +113,6 @@ fn main() {
 			material: test_mat,
 		},
 	));
-
-	let mut resources = Resources::default();
-	resources.insert(uniform_man);
-	resources.insert(ubo_matrices);
-
-	let mut schedule = Schedule::builder()
-		.add_thread_local(update_camera_system())
-		.add_thread_local(render_model_system())
-		.build();
 
 	while !window.should_close() {
 		window.pre_loop();

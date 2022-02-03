@@ -24,6 +24,10 @@ fn render_model(tf: &Transform, rend: &Renderable, #[resource] unif_man: &mut Un
 
 	shader.use_program();
 	shader.set_mat4("model", &model);
+	shader.set_mat4(
+		"normal_mat",
+		&model.try_inverse().expect("Could not inverse?").transpose(),
+	);
 	rend.material.set_all(unif_man);
 
 	mesh.draw();
@@ -61,9 +65,11 @@ fn main() {
 		.build();
 
 	let shader = Shader::new("shaders/ubo.vs", "shaders/ubo.fs").unwrap();
+	let shader2 = Shader::new("shaders/advanced.vs", "shaders/advanced.fs").unwrap();
+
 	let mut uniform_man = UniformManager::new();
 	uniform_man.add_uniform("light_color", vector!(1.0, 1.0, 1.0));
-	uniform_man.add_uniform("light_pos", vector!(0.0, 5.0, 0.0));
+	uniform_man.add_uniform("light_pos", vector!(5.0, 4.0, 0.0));
 	uniform_man.add_uniform("view_pos", vector!(0.0, 0.0, 0.0));
 
 	let mut loaded = match Loader::load("models/teapot.obj") {
@@ -76,6 +82,7 @@ fn main() {
 
 	let point = 0;
 	Ubo::set_uniform_block(&shader, "Matrices", point);
+	Ubo::set_uniform_block(&shader2, "Matrices", point);
 	let ubo_matrices = match Ubo::create_buffer(point, 2 * size_of::<Matrix4<f32>>()) {
 		Ok(e) => e,
 		Err(e) => {
@@ -88,9 +95,11 @@ fn main() {
 
 	let test_mat = Material::new(
 		shader,
-		vec![("object_color", vector!(0.0, 0.49, 0.1))],
+		vec![("albedo", vector!(0.0, 0.49, 1.0))],
 		vec!["light_color", "light_pos", "view_pos"],
 	);
+
+	let test_mat2 = Material::new(shader2, vec![("albedo", vector!(1.0, 1.0, 1.0))], vec![]);
 
 	let _player = world.push((
 		Transform {
@@ -110,8 +119,20 @@ fn main() {
 			..Transform::default()
 		},
 		Renderable {
-			mesh: mesh,
-			material: test_mat,
+			mesh: mesh.clone(),
+			material: test_mat.clone(),
+		},
+	));
+
+	let light = world.push((
+		Transform {
+			position: vector![4.0, 4.0, 0.0],
+			scale: vector![0.1, 0.1, 0.1],
+			..Transform::default()
+		},
+		Renderable {
+			mesh: mesh.clone(),
+			material: test_mat2.clone(),
 		},
 	));
 

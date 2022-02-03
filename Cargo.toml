@@ -12,3 +12,4 @@ nalgebra = "0.30.1"
 nalgebra-glm = "0.16.0"
 legion = { version = "0.4.0"}
 memoffset = "0.6.5"
+tobj = "3.2.0"

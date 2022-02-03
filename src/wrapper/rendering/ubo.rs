@@ -1,4 +1,4 @@
-use super::{error::*, shader::Shader};
+use crate::wrapper::{error::*, rendering::Shader};
 use gl::types::*;
 use nalgebra::{Matrix4, Vector3};
 use std::{ffi::CString, os::raw::c_void, ptr};

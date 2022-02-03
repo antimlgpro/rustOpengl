@@ -9,13 +9,14 @@ layout (std140) uniform Matrices
 };
 
 uniform mat4 model;
+uniform mat4 normal_mat;
 
-out vec3 Normal;
 out vec3 FragPos;
+out vec3 Normal;
 
 void main()
 {
 	FragPos = vec3(model * vec4(aPos, 1.0));
-	Normal = aNormal;
 	gl_Position = proj * view * model * vec4(aPos, 1.0);
+	Normal = mat3(normal_mat) * aNormal;
 }

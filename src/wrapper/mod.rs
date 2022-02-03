@@ -6,7 +6,6 @@ mod mesh;
 mod shader;
 mod ubo;
 
-mod uniform;
 mod uniform_manager;
 
 pub use frame::*;
@@ -17,5 +16,4 @@ pub use mesh::*;
 pub use shader::*;
 pub use ubo::*;
 
-pub use uniform::*;
 pub use uniform_manager::*;

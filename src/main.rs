@@ -4,7 +4,7 @@ extern crate glfw;
 extern crate nalgebra_glm as glm;
 
 use legion::*;
-use nalgebra::{vector, Matrix4, Rotation3, Vector3};
+use nalgebra::{vector, Matrix4, Rotation3};
 use std::mem::size_of;
 
 mod components;
@@ -12,7 +12,7 @@ mod util;
 mod wrapper;
 use components::*;
 use util::radians;
-use wrapper::{Mesh, Shader, Ubo, UniformManager, Vertex, Window, WindowSettings};
+use wrapper::{Loader, Shader, Ubo, UniformManager, Window, WindowSettings};
 
 #[system(for_each)]
 fn render_model(tf: &Transform, rend: &Renderable, #[resource] unif_man: &mut UniformManager) {
@@ -48,37 +48,6 @@ fn update_camera(
 	unif_man.set_uniform("view_pos", tf.position);
 }
 
-fn gen_cube() -> (Vec<Vertex>, Vec<u32>) {
-	let vertices: [f32; 8 * 3] = [
-		-1.0, -1.0, -1.0, 1.0, -1.0, -1.0, 1.0, 1.0, -1.0, -1.0, 1.0, -1.0, -1.0, -1.0, 1.0, 1.0,
-		-1.0, 1.0, 1.0, 1.0, 1.0, -1.0, 1.0, 1.0,
-	];
-	let indices = [
-		0, 1, 3, 3, 1, 2, 1, 5, 2, 2, 5, 6, 5, 4, 6, 6, 4, 7, 4, 0, 7, 7, 0, 3, 3, 2, 7, 7, 2, 6,
-		4, 5, 0, 0, 5, 1,
-	];
-
-	let mut vertices_: Vec<Vector3<f32>> = Vec::new();
-
-	for i in (0..vertices.len()).step_by(3) {
-		vertices_.push(Vector3::new(vertices[i], vertices[i + 1], vertices[i + 2]))
-	}
-
-	let ind: Vec<u32> = indices.to_vec();
-	let mut vert: Vec<Vertex> = Vec::new();
-
-	let normals = util::calculate_normals(&vertices_, &ind);
-
-	for i in 0..vertices_.len() {
-		vert.push(Vertex {
-			position: vertices_[i],
-			normal: normals[i],
-		});
-	}
-
-	return (vert, ind);
-}
-
 fn main() {
 	let mut window = Window::new(WindowSettings::default()).default_setup();
 	let mut world = legion::World::default();
@@ -91,12 +60,17 @@ fn main() {
 	uniform_man.add_uniform("light_pos", vector!(0.0, 5.0, 0.0));
 	uniform_man.add_uniform("view_pos", vector!(0.0, 0.0, 0.0));
 
-	let (vert, ind) = gen_cube();
-	let mesh = Mesh::new(vert, ind).unwrap();
+	let mut loaded = match Loader::load("models/teapot.obj") {
+		Ok(m) => m,
+		Err(e) => {
+			panic!("Loader: {}", e);
+		}
+	};
+
+	let mesh = loaded.remove(0);
 
 	let point = 0;
 	Ubo::set_uniform_block(&shader, "Matrices", point);
-	//Ubo::set_uniform_block(&shader2, "Matrices", point);
 	let ubo_matrices = match Ubo::create_buffer(point, 2 * size_of::<Matrix4<f32>>()) {
 		Ok(e) => e,
 		Err(e) => {
@@ -109,7 +83,7 @@ fn main() {
 		vec!["object_color", "light_color", "light_pos", "view_pos"],
 	);
 
-	let player = world.push((
+	let _player = world.push((
 		Transform {
 			position: vector![0.0, 3.0, -4.5],
 			rotation: Rotation3::from_euler_angles(radians(20.0), 0.0, 0.0),

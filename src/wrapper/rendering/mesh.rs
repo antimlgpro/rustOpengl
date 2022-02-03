@@ -46,7 +46,7 @@ pub struct Mesh {
 	ebo: u32,
 }
 
-// todo: Implement GLError checking
+// TODO: Add error checking for mesh construction
 impl Mesh {
 	pub fn new(vertices: Vec<Vertex>, indices: Vec<u32>) -> Result<Mesh, GLError> {
 		let mut mesh = Mesh {

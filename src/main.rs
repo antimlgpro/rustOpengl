@@ -1,8 +1,4 @@
 #![allow(dead_code)]
-extern crate gl;
-extern crate glfw;
-extern crate nalgebra_glm as glm;
-
 use legion::*;
 use nalgebra::{vector, Matrix4, Rotation3};
 use std::{mem::size_of, os::raw::c_void};

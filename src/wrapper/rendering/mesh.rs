@@ -1,4 +1,3 @@
-extern crate gl;
 use memoffset::offset_of;
 use nalgebra::{Vector2, Vector3};
 use std::fmt;

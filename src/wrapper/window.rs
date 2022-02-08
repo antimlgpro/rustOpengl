@@ -1,6 +1,4 @@
-extern crate gl;
-extern crate glfw;
-use self::glfw::Context;
+use glfw::Context;
 use std::sync::mpsc::Receiver;
 
 use super::frame::Frame;

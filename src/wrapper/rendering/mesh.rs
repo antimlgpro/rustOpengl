@@ -1,12 +1,12 @@
 use memoffset::offset_of;
 use nalgebra::{Vector2, Vector3};
-use std::fmt;
-use std::fmt::Display;
-use std::mem::size_of;
-use std::os::raw::c_void;
-use std::ptr;
+use std::{fmt, fmt::Display, mem::size_of, os::raw::c_void, ptr};
 
-use crate::wrapper::error::GLError;
+use crate::util::to_cstring;
+use crate::wrapper::{
+	error::GLError,
+	render::core::{shader::Shader, Texture},
+};
 
 #[derive(Clone, Debug)]
 #[repr(C)]
@@ -41,18 +41,24 @@ impl Display for Vertex {
 pub struct Mesh {
 	pub vertices: Vec<Vertex>,
 	pub indices: Vec<u32>,
-	pub vao: u32,
+	pub textures: Vec<Texture>,
 
+	pub vao: u32,
 	vbo: u32,
 	ebo: u32,
 }
 
 // TODO: Add error checking for mesh construction
 impl Mesh {
-	pub fn new(vertices: Vec<Vertex>, indices: Vec<u32>) -> Result<Mesh, GLError> {
+	pub fn new(
+		vertices: Vec<Vertex>,
+		indices: Vec<u32>,
+		textures: Vec<Texture>,
+	) -> Result<Mesh, GLError> {
 		let mut mesh = Mesh {
 			vertices,
 			indices,
+			textures,
 			vao: 0,
 			vbo: 0,
 			ebo: 0,
@@ -63,8 +69,45 @@ impl Mesh {
 		Ok(mesh)
 	}
 
-	pub fn draw(&self) {
+	pub fn draw(&self, shader: &Shader) {
 		unsafe {
+			// bind appropriate textures
+			let mut diffuseNr = 0;
+			let mut specularNr = 0;
+			let mut normalNr = 0;
+			let mut heightNr = 0;
+			for (i, texture) in self.textures.iter().enumerate() {
+				gl::ActiveTexture(gl::TEXTURE0 + i as u32);
+				let name = &texture.type_name;
+				let number = match name.as_str() {
+					"texture_diffuse" => {
+						diffuseNr += 1;
+						diffuseNr
+					}
+					"texture_specular" => {
+						specularNr += 1;
+						specularNr
+					}
+					"texture_normal" => {
+						normalNr += 1;
+						normalNr
+					}
+					"texture_height" => {
+						heightNr += 1;
+						heightNr
+					}
+					_ => panic!("unknown texture type"),
+				};
+				// now set the sampler to the correct texture unit
+				let sampler = to_cstring(format!("{}{}", name, number)).unwrap();
+				gl::Uniform1i(
+					gl::GetUniformLocation(shader.id, sampler.as_ptr()),
+					i as i32,
+				);
+				// and finally bind the texture
+				gl::BindTexture(gl::TEXTURE_2D, texture.id);
+			}
+
 			gl::BindVertexArray(self.vao);
 			gl::DrawElements(
 				gl::TRIANGLES,
@@ -73,6 +116,9 @@ impl Mesh {
 				ptr::null(),
 			);
 			gl::BindVertexArray(0);
+
+			// Unbind textures
+			gl::ActiveTexture(gl::TEXTURE0);
 		}
 	}
 

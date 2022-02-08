@@ -37,7 +37,7 @@ impl Clone for Shader {
 }
 
 impl Shader {
-	pub fn new(v_src_path: &str, f_src_path: &str) -> Result<Shader, ShaderError> {
+	pub fn new(v_src_path: &str, f_src_path: &str) -> Result<Shader, String> {
 		let mut shader = Shader { id: 0 };
 
 		let vertex_src = to_cstring(load_to_string(v_src_path).unwrap()).unwrap();
@@ -49,7 +49,8 @@ impl Shader {
 			gl::CompileShader(vertex);
 			match shader.check_shader_errors(vertex) {
 				Some(e) => {
-					println!("Vertex: {}", e)
+					println!("Vertex: {}", e);
+					return Err(e);
 				}
 				None => {}
 			}
@@ -59,7 +60,8 @@ impl Shader {
 			gl::CompileShader(fragment);
 			match shader.check_shader_errors(fragment) {
 				Some(e) => {
-					println!("Fragment: {}", e)
+					println!("Fragment: {}", e);
+					return Err(e);
 				}
 				None => {}
 			}
@@ -71,6 +73,7 @@ impl Shader {
 			match shader.check_program_errors(id) {
 				Some(e) => {
 					println!("Program: {}", e);
+					return Err(e);
 				}
 				None => {}
 			}
@@ -86,6 +89,20 @@ impl Shader {
 	pub fn use_program(&self) {
 		unsafe {
 			gl::UseProgram(self.id);
+		}
+	}
+
+	pub fn set_int(self, name: &str, val: i32) {
+		unsafe {
+			let _name = &CString::new(name).expect("Unable to convert string to CString");
+			gl::Uniform1i(gl::GetUniformLocation(self.id, _name.as_ptr()), val);
+		}
+	}
+
+	pub fn set_float(self, name: &str, val: f32) {
+		unsafe {
+			let _name = &CString::new(name).expect("Unable to convert string to CString");
+			gl::Uniform1f(gl::GetUniformLocation(self.id, _name.as_ptr()), val);
 		}
 	}
 

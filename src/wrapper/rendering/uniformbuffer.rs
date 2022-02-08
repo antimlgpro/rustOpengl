@@ -3,12 +3,12 @@ use gl::types::*;
 use nalgebra::{Matrix4, Vector3};
 use std::{ffi::CString, os::raw::c_void, ptr};
 
-pub struct Ubo {
+pub struct UniformBuffer {
 	pub id: u32,
 }
 
-impl Ubo {
-	pub fn create_buffer(bind_point: GLuint, size: usize) -> Result<Ubo, GLError> {
+impl UniformBuffer {
+	pub fn create_buffer(bind_point: GLuint, size: usize) -> Result<Self, GLError> {
 		unsafe {
 			let mut id = 0;
 			gl::GenBuffers(1, &mut id);
@@ -24,7 +24,7 @@ impl Ubo {
 
 			match get_error() {
 				Some(e) => return Err(e),
-				None => return Ok(Ubo { id }),
+				None => return Ok(UniformBuffer { id }),
 			};
 		};
 	}

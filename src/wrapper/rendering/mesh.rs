@@ -1,6 +1,6 @@
 extern crate gl;
 use memoffset::offset_of;
-use nalgebra::Vector3;
+use nalgebra::{Vector2, Vector3};
 use std::fmt;
 use std::fmt::Display;
 use std::mem::size_of;
@@ -14,6 +14,7 @@ use crate::wrapper::GLError;
 pub struct Vertex {
 	pub position: Vector3<f32>,
 	pub normal: Vector3<f32>,
+	pub tex_coords: Vector2<f32>,
 }
 
 impl Default for Vertex {
@@ -21,6 +22,7 @@ impl Default for Vertex {
 		Vertex {
 			position: Vector3::default(),
 			normal: Vector3::default(),
+			tex_coords: Vector2::default(),
 		}
 	}
 }
@@ -115,6 +117,16 @@ impl Mesh {
 				gl::FALSE,
 				size,
 				offset_of!(Vertex, normal) as *const c_void,
+			);
+			// vertex texcoords
+			gl::EnableVertexAttribArray(2);
+			gl::VertexAttribPointer(
+				2,
+				3,
+				gl::FLOAT,
+				gl::FALSE,
+				size,
+				offset_of!(Vertex, tex_coords) as *const c_void,
 			);
 
 			gl::BindVertexArray(0);

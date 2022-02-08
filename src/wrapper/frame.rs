@@ -4,7 +4,7 @@ use gl::types::*;
 pub struct Frame {}
 
 impl Frame {
-	pub fn new() -> Self {
+	pub fn draw() -> Self {
 		Frame {}
 	}
 

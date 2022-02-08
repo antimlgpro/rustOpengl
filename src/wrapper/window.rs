@@ -98,7 +98,7 @@ impl Window {
 	}
 
 	pub fn get_frame(&self) -> Frame {
-		Frame::new()
+		Frame::draw()
 	}
 
 	pub fn should_close(&self) -> bool {

@@ -1,3 +1,5 @@
+use crate::wrapper::render::core::Texture;
+
 use gl::types::*;
 use std::collections::HashMap;
 
@@ -60,40 +62,15 @@ impl FrameBuffer {
 		}
 	}
 
-	pub fn gen_texture_buffer(&mut self, tex_buf: TextureBuffer) {
-		unsafe {
-			let mut buf: u32 = 0;
-
-			gl::GenTextures(1, &mut buf);
-			gl::BindTexture(gl::TEXTURE_2D, buf);
-			gl::TexImage2D(
-				gl::TEXTURE_2D,
-				0,
-				tex_buf.internal_format as i32,
-				tex_buf.width as i32,
-				tex_buf.height as i32,
-				0,
-				tex_buf.format,
-				tex_buf.type_,
-				std::ptr::null(),
-			);
-			gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MIN_FILTER, gl::NEAREST as i32);
-			gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MAG_FILTER, gl::NEAREST as i32);
-			gl::FramebufferTexture2D(gl::FRAMEBUFFER, tex_buf.attachment, gl::TEXTURE_2D, buf, 0);
-
-			self.buffers.insert(tex_buf.name, buf);
-			self.attachments.push(tex_buf.attachment);
-		}
+	pub fn add_texture(&mut self, texture: Texture) {
+		self.buffers.insert(texture.type_name, texture.id);
+		self.attachments.push(gl::COLOR_ATTACHMENT0 + texture.index);
 	}
 
 	pub fn draw_buffers(&mut self) {
 		unsafe {
 			gl::DrawBuffers(self.attachments.len() as i32, self.attachments.as_ptr());
 		}
-	}
-
-	pub fn add_attachments(&mut self, attachments: &mut Vec<GLenum>) {
-		self.attachments.append(attachments);
 	}
 
 	pub fn get_buffer(&self, name: &str) -> &u32 {

@@ -17,6 +17,8 @@ pub enum GLError {
 	ContextLost,
 }
 
+pub type ShaderError = String;
+
 impl Display for GLError {
 	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
 		match self {

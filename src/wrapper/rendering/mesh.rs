@@ -7,7 +7,7 @@ use std::mem::size_of;
 use std::os::raw::c_void;
 use std::ptr;
 
-use crate::wrapper::GLError;
+use crate::wrapper::error::GLError;
 
 #[derive(Clone, Debug)]
 #[repr(C)]

@@ -1,4 +1,4 @@
-use crate::wrapper::{Material, Mesh};
+use crate::wrapper::render::core::{mesh::Mesh, Material};
 
 pub struct Renderable {
 	pub material: Material,

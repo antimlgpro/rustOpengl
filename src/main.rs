@@ -5,7 +5,6 @@ extern crate nalgebra_glm as glm;
 
 use legion::*;
 use nalgebra::{vector, Matrix4, Rotation3};
-use rand::Rng;
 use std::{mem::size_of, os::raw::c_void};
 
 mod components;
@@ -13,9 +12,11 @@ mod util;
 mod wrapper;
 use components::*;
 use util::radians;
+
 use wrapper::{
-	error_callback, FrameBuffer, Loader, Material, RenderBuffer, Shader, TextureBuffer,
-	UniformBuffer, UniformManager, Window, WindowSettings,
+	error::error_callback,
+	render::{buffers::*, core::shader::Shader, core::*},
+	window::{Time, Window, WindowSettings},
 };
 
 #[system(for_each)]
@@ -119,45 +120,40 @@ fn main() {
 	let fbo_closure = move || {
 		let (screen_width, screen_height) = (window.settings.width, window.settings.height);
 
-		let tex_buf1 = TextureBuffer {
-			name: "position".to_owned(),
+		let tex_opt1 = TextureOptions {
 			width: screen_width,
 			height: screen_height,
 			internal_format: gl::RGBA16F,
 			format: gl::RGBA,
 			type_: gl::FLOAT,
-			attachment: gl::COLOR_ATTACHMENT0,
 		};
-		let tex_buf2 = TextureBuffer {
-			name: "normal".to_owned(),
-			width: screen_width,
-			height: screen_height,
-			internal_format: gl::RGBA16F,
-			format: gl::RGBA,
-			type_: gl::FLOAT,
-			attachment: gl::COLOR_ATTACHMENT1,
-		};
-		let tex_buf3 = TextureBuffer {
-			name: "albedo_spec".to_owned(),
+
+		let tex_opt2 = TextureOptions {
 			width: screen_width,
 			height: screen_height,
 			internal_format: gl::RGBA16F,
 			format: gl::RGBA,
 			type_: gl::UNSIGNED_BYTE,
-			attachment: gl::COLOR_ATTACHMENT2,
 		};
 
 		let mut g_buffer = FrameBuffer::new();
 
-		g_buffer.gen_texture_buffer(tex_buf1);
-		g_buffer.gen_texture_buffer(tex_buf2);
-		g_buffer.gen_texture_buffer(tex_buf3);
+		// Create framebuffer textures from options
+		let g_position = Texture::for_framebuffer("position", 0, &tex_opt1);
+		let g_normal = Texture::for_framebuffer("normal", 1, &tex_opt1);
+		let g_albedo_spec = Texture::for_framebuffer("albedo_spec", 2, &tex_opt2);
 
+		// Add textures to framebuffer
+		g_buffer.add_texture(g_position);
+		g_buffer.add_texture(g_normal);
+		g_buffer.add_texture(g_albedo_spec);
 		g_buffer.draw_buffers();
-		let rbo = RenderBuffer::new(screen_width, screen_height);
-		rbo.framebuffer_renderbuffer();
-		g_buffer.finish().unwrap();
 
+		// Create depth renderbuffer
+		let rbo = RenderBuffer::new(screen_width, screen_height);
+
+		// Complete framebuffer and check for errors.
+		g_buffer.finish().unwrap();
 		g_buffer
 	};
 	let g_buffer = fbo_closure();
@@ -200,38 +196,14 @@ fn main() {
 		);
 	}
 
-	let mut cube_texture: u32 = 0;
-	unsafe {
-		let width = 128;
-		let height = 128;
-
-		let capacity = width * height;
-		let mut data: Vec<u32> = vec![0; capacity * 3];
-		for y in 0..width {
-			for x in 0..height {
-				let offset = y * width + x;
-				data[offset * 3 + 0] = 255;
-				data[offset * 3 + 1] = 255;
-				data[offset * 3 + 2] = 255;
-			}
-		}
-
-		gl::GenTextures(1, &mut cube_texture);
-		gl::BindTexture(gl::TEXTURE_2D, cube_texture);
-
-		gl::TexImage2D(
-			gl::TEXTURE_2D,
-			0,
-			gl::RGB as i32,
-			width as i32,
-			height as i32,
-			0,
-			gl::RGB,
-			gl::UNSIGNED_BYTE,
-			data.as_ptr() as *const c_void,
-		);
-		gl::GenerateMipmap(gl::TEXTURE_2D);
-	}
+	let blank = TextureOptions {
+		width: 128,
+		height: 128,
+		internal_format: gl::RGB,
+		format: gl::RGB,
+		type_: gl::UNSIGNED_BYTE,
+	};
+	let cube_texture = Texture::blank_texture("blank", &blank);
 
 	std_pass.use_program();
 	light_pass.set_int("texture1", 0);
@@ -278,7 +250,7 @@ fn main() {
 
 			unsafe {
 				gl::ActiveTexture(gl::TEXTURE0);
-				gl::BindTexture(gl::TEXTURE_2D, cube_texture);
+				gl::BindTexture(gl::TEXTURE_2D, cube_texture.id);
 			}
 
 			mesh.draw();

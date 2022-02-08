@@ -1,4 +1,5 @@
-use crate::wrapper::{Shader, UniformManager};
+use crate::wrapper::render::core::{shader::Shader, UniformManager};
+
 use nalgebra::{Matrix4, Vector3};
 use std::collections::HashMap;
 

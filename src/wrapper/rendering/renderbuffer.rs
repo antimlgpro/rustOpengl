@@ -17,20 +17,16 @@ impl RenderBuffer {
 				height as i32,
 			);
 
-			buf.rbo = rbo;
-		}
-
-		buf
-	}
-
-	pub fn framebuffer_renderbuffer(&self) {
-		unsafe {
 			gl::FramebufferRenderbuffer(
 				gl::FRAMEBUFFER,
 				gl::DEPTH_ATTACHMENT,
 				gl::RENDERBUFFER,
-				self.rbo,
+				rbo,
 			);
+
+			buf.rbo = rbo;
 		}
+
+		buf
 	}
 }

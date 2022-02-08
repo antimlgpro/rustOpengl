@@ -1,6 +1,9 @@
 use crate::{
 	util::calculate_normals,
-	wrapper::{GLError, Mesh, Vertex},
+	wrapper::{
+		error::GLError,
+		render::core::mesh::{Mesh, Vertex},
+	},
 };
 use nalgebra::{vector, Vector3};
 use std::path::Path;

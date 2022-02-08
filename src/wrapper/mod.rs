@@ -24,4 +24,8 @@ pub mod render {
 	pub mod buffers {
 		pub use super::super::rendering::{FrameBuffer, RenderBuffer, UniformBuffer};
 	}
+
+	pub mod primitive {
+		pub use super::super::rendering::primitive_object::*;
+	}
 }

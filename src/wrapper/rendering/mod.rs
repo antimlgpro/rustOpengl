@@ -9,7 +9,6 @@ mod uniformbuffer;
 pub mod mesh;
 pub mod shader;
 
-//pub use mesh::*;
 pub use model_loader::*;
 
 pub use material::*;
@@ -21,3 +20,5 @@ pub use renderbuffer::*;
 pub use uniformbuffer::*;
 
 pub use uniform_manager::*;
+
+pub mod primitive_object;

@@ -1,7 +1,9 @@
 #![allow(dead_code)]
+extern crate nalgebra_glm as glm;
+
 use legion::*;
 use nalgebra::{vector, Matrix4, Rotation3};
-use std::{mem::size_of, os::raw::c_void};
+use std::mem::size_of;
 
 mod components;
 mod util;
@@ -11,8 +13,13 @@ use util::radians;
 
 use wrapper::{
 	error::error_callback,
-	render::{buffers::*, core::shader::Shader, core::*},
-	window::{Time, Window, WindowSettings},
+	render::{
+		buffers::*,
+		core::shader::Shader,
+		core::*,
+		primitive::{Primitive, Quad},
+	},
+	window::{Window, WindowSettings},
 };
 
 #[system(for_each)]
@@ -146,51 +153,13 @@ fn main() {
 		g_buffer.draw_buffers();
 
 		// Create depth renderbuffer
-		let rbo = RenderBuffer::new(screen_width, screen_height);
+		RenderBuffer::new(screen_width, screen_height);
 
 		// Complete framebuffer and check for errors.
 		g_buffer.finish().unwrap();
 		g_buffer
 	};
 	let g_buffer = fbo_closure();
-
-	let quad_vertices: [f32; 24] = [
-		-1.0, 1.0, 0.0, 1.0, -1.0, -1.0, 0.0, 0.0, 1.0, -1.0, 1.0, 0.0, -1.0, 1.0, 0.0, 1.0, 1.0,
-		-1.0, 1.0, 0.0, 1.0, 1.0, 1.0, 1.0,
-	];
-
-	let mut quad_vao: u32 = 0;
-	let mut quad_vbo: u32 = 0;
-	unsafe {
-		gl::GenVertexArrays(1, &mut quad_vao);
-		gl::GenBuffers(1, &mut quad_vbo);
-		gl::BindVertexArray(quad_vao);
-		gl::BindBuffer(gl::ARRAY_BUFFER, quad_vbo);
-		gl::BufferData(
-			gl::ARRAY_BUFFER,
-			(size_of::<f32>() * 24) as isize,
-			quad_vertices.as_ptr() as *const c_void,
-			gl::STATIC_DRAW,
-		);
-		gl::EnableVertexAttribArray(0);
-		gl::VertexAttribPointer(
-			0,
-			2,
-			gl::FLOAT,
-			gl::FALSE,
-			(size_of::<f32>() * 4) as i32,
-			0 as *const c_void,
-		);
-		gl::EnableVertexAttribArray(1);
-		gl::VertexAttribPointer(
-			1,
-			2,
-			gl::FLOAT,
-			gl::FALSE,
-			(size_of::<f32>() * 4) as i32,
-			(size_of::<f32>() * 2) as *const c_void,
-		);
-	}
 
 	let blank = TextureOptions {
 		width: 128,
@@ -200,6 +169,8 @@ fn main() {
 		type_: gl::UNSIGNED_BYTE,
 	};
 	let cube_texture = Texture::blank_texture("blank", &blank);
+
+	let quad = Quad::new();
 
 	std_pass.use_program();
 	light_pass.set_int("texture1", 0);
@@ -254,9 +225,8 @@ fn main() {
 
 		unsafe {
 			g_buffer.unbind();
-			//gl::Disable(gl::DEPTH_TEST);
 			gl::ClearColor(1.0, 1.0, 1.0, 1.0);
-			gl::Clear(gl::COLOR_BUFFER_BIT | gl::DEPTH_BUFFER_BIT); //
+			gl::Clear(gl::COLOR_BUFFER_BIT | gl::DEPTH_BUFFER_BIT);
 
 			let buf = g_buffer.get_buffer("position");
 			let buf2 = g_buffer.get_buffer("normal");
@@ -273,8 +243,7 @@ fn main() {
 			light_pass.set_vector3("lightPos", &vector![0.0, 3.0, 0.0]);
 			light_pass.set_vector3("viewPos", &vector![0.0, 3.0, -4.5]);
 
-			gl::BindVertexArray(quad_vao);
-			gl::DrawArrays(gl::TRIANGLES, 0, 6);
+			quad.draw();
 		}
 
 		window.post_loop();

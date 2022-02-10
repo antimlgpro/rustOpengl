@@ -1,3 +1,5 @@
+use crate::util::to_cstring;
+use crate::wrapper::render::core::shader::Shader;
 use gl::types::*;
 use image;
 use image::DynamicImage::*;
@@ -138,6 +140,28 @@ impl Texture {
 			type_name: type_name.to_owned(),
 			path: "".to_owned(),
 			index: 0,
+		}
+	}
+}
+
+impl Texture {
+	pub fn bind(&self, shader: &Shader, index: u32) {
+		unsafe {
+			let sampler = to_cstring(self.type_name.clone()).unwrap();
+			gl::Uniform1i(
+				gl::GetUniformLocation(shader.id, sampler.as_ptr()),
+				index as i32,
+			);
+			gl::ActiveTexture(gl::TEXTURE0 + index);
+			gl::BindTexture(gl::TEXTURE_2D, self.id);
+		}
+	}
+
+	// activates and binds texture
+	pub fn activate(&self) {
+		unsafe {
+			gl::ActiveTexture(gl::TEXTURE0 + self.index);
+			gl::BindTexture(gl::TEXTURE_2D, self.id);
 		}
 	}
 }

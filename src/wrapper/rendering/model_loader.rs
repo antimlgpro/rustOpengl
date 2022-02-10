@@ -11,6 +11,7 @@ use crate::{
 use nalgebra::{vector, Vector3};
 use std::path::Path;
 use tobj;
+use tobj::Material;
 
 pub struct Loader {
 	textures_loaded: Vec<Texture>,
@@ -37,17 +38,17 @@ impl Loader {
 		for model in models {
 			let mesh = model.mesh;
 			let num_vertices = mesh.positions.len();
-
-			let mut vertices: Vec<Vertex> = Vec::with_capacity(num_vertices);
 			let indices: Vec<u32> = mesh.indices.clone();
 
 			let (p, n) = (&mesh.positions, &mesh.normals);
 
+			// Create position vector
 			let mut positions: Vec<Vector3<f32>> = Vec::new();
 			for i in (0..num_vertices).step_by(3) {
 				positions.push(vector!(p[i], p[i + 1], p[i + 2]));
 			}
 
+			// Create or get normal vector
 			let mut normals: Vec<Vector3<f32>> = Vec::new();
 			if n.len() != num_vertices {
 				normals = calculate_normals(&positions, &indices);
@@ -57,57 +58,38 @@ impl Loader {
 				}
 			}
 
+			// Get textures or create blank
+			let mut textures = Vec::new();
+			match materials {
+				Ok(ref mat) => {
+					if mat.len() > 0 {
+						println!("Creating textures");
+						loader.get_textures(mat, mesh.material_id, &mut textures);
+					} else {
+						println!("Creating blank diffuse texture");
+						textures.push(Texture::blank_texture(
+							"texture_diffuse",
+							&TextureOptions {
+								width: 128,
+								height: 128,
+								internal_format: gl::RGB,
+								format: gl::RGB,
+								type_: gl::UNSIGNED_BYTE,
+							},
+						));
+					}
+				}
+				Err(_) => {}
+			}
+
+			// Create Vertex vector
+			let mut vertices: Vec<Vertex> = Vec::with_capacity(num_vertices);
 			for i in 0..positions.len() {
 				vertices.push(Vertex {
 					position: positions[i],
 					normal: normals[i],
 					..Vertex::default()
 				});
-			}
-
-			let mut textures = Vec::new();
-			match materials {
-				Err(_) => {
-					// Default blank texture
-					textures.push(Texture::blank_texture(
-						"texture_diffuse",
-						&TextureOptions {
-							width: 128,
-							height: 128,
-							internal_format: gl::RGB,
-							format: gl::RGB,
-							type_: gl::UNSIGNED_BYTE,
-						},
-					));
-				}
-				Ok(ref mat) => {
-					if let Some(material_id) = mesh.material_id {
-						let material = &mat[material_id];
-						// 1. diffuse map
-						if !material.diffuse_texture.is_empty() {
-							let texture = loader.load_material_texture(
-								&material.diffuse_texture,
-								"texture_diffuse",
-							);
-							textures.push(texture);
-						}
-						// 2. specular map
-						if !material.specular_texture.is_empty() {
-							let texture = loader.load_material_texture(
-								&material.specular_texture,
-								"texture_specular",
-							);
-							textures.push(texture);
-						}
-						// 3. normal map
-						if !material.normal_texture.is_empty() {
-							let texture = loader
-								.load_material_texture(&material.normal_texture, "texture_normal");
-							textures.push(texture);
-						}
-						// NOTE: no height maps
-					}
-				}
 			}
 
 			let mesh = match Mesh::new(vertices, indices, textures) {
@@ -120,6 +102,25 @@ impl Loader {
 		}
 
 		return Ok(meshes);
+	}
+
+	fn get_textures(&mut self, mat: &Vec<Material>, mat_id: Option<usize>, t: &mut Vec<Texture>) {
+		// Default blank texture
+		if let Some(mat_id) = mat_id {
+			let material = &mat[mat_id];
+			// 1. diffuse map
+			if !material.diffuse_texture.is_empty() {
+				t.push(self.load_material_texture(&material.diffuse_texture, "texture_diffuse"));
+			}
+			// 2. specular map
+			if !material.specular_texture.is_empty() {
+				t.push(self.load_material_texture(&material.specular_texture, "texture_specular"));
+			}
+			// 3. normal map
+			if !material.normal_texture.is_empty() {
+				t.push(self.load_material_texture(&material.normal_texture, "texture_normal"));
+			}
+		}
 	}
 
 	fn load_material_texture(&mut self, path: &str, type_name: &str) -> Texture {

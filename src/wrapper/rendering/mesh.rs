@@ -72,42 +72,11 @@ impl Mesh {
 	pub fn draw(&self, shader: &Shader) {
 		unsafe {
 			// bind appropriate textures
-			let mut diffuseNr = 0;
-			let mut specularNr = 0;
-			let mut normalNr = 0;
-			let mut heightNr = 0;
 			for (i, texture) in self.textures.iter().enumerate() {
-				gl::ActiveTexture(gl::TEXTURE0 + i as u32);
-				let name = &texture.type_name;
-				let number = match name.as_str() {
-					"texture_diffuse" => {
-						diffuseNr += 1;
-						diffuseNr
-					}
-					"texture_specular" => {
-						specularNr += 1;
-						specularNr
-					}
-					"texture_normal" => {
-						normalNr += 1;
-						normalNr
-					}
-					"texture_height" => {
-						heightNr += 1;
-						heightNr
-					}
-					_ => panic!("unknown texture type"),
-				};
-				// now set the sampler to the correct texture unit
-				let sampler = to_cstring(format!("{}{}", name, number)).unwrap();
-				gl::Uniform1i(
-					gl::GetUniformLocation(shader.id, sampler.as_ptr()),
-					i as i32,
-				);
-				// and finally bind the texture
-				gl::BindTexture(gl::TEXTURE_2D, texture.id);
+				texture.bind(&shader, i as u32);
 			}
 
+			// Draw object
 			gl::BindVertexArray(self.vao);
 			gl::DrawElements(
 				gl::TRIANGLES,

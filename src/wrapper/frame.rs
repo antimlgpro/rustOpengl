@@ -1,5 +1,6 @@
 use gl::types::*;
 
+/// This has safe versions of gl rendering calls
 pub struct Frame {}
 
 impl Frame {

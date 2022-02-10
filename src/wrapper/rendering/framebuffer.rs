@@ -15,7 +15,7 @@ pub struct TextureBuffer {
 
 pub struct FrameBuffer {
 	pub fbo: u32,
-	pub buffers: HashMap<String, u32>,
+	pub buffers: HashMap<String, Texture>,
 	pub attachments: Vec<GLenum>,
 }
 
@@ -63,8 +63,8 @@ impl FrameBuffer {
 	}
 
 	pub fn add_texture(&mut self, texture: Texture) {
-		self.buffers.insert(texture.type_name, texture.id);
 		self.attachments.push(gl::COLOR_ATTACHMENT0 + texture.index);
+		self.buffers.insert(texture.type_name.clone(), texture);
 	}
 
 	pub fn draw_buffers(&mut self) {
@@ -73,7 +73,14 @@ impl FrameBuffer {
 		}
 	}
 
-	pub fn get_buffer(&self, name: &str) -> &u32 {
+	pub fn get_buffer(&self, name: &str) -> &Texture {
 		return self.buffers.get(name).unwrap();
+	}
+
+	/// Binds all texture buffers to shader textures.
+	pub fn activate_buffers(&self) {
+		for (name, texture) in &self.buffers {
+			texture.activate();
+		}
 	}
 }

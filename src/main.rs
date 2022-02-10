@@ -18,7 +18,7 @@ use wrapper::{
 		buffers::*,
 		core::shader::Shader,
 		core::*,
-		primitive::{Cube, Primitive, Quad},
+		primitive::{Primitive, Quad},
 	},
 	window::{Window, WindowSettings},
 };
@@ -29,7 +29,7 @@ fn render_model(tf: &mut Transform, rend: &Renderable) {
 	let shader = &rend.material.shader;
 	let model = tf.get_matrix();
 
-	//tf.rotate_euler(0.0, radians(1.0), 0.0);
+	tf.rotate_euler(0.0, radians(1.0), 0.0);
 
 	shader.use_program();
 	shader.set_mat4("model", &model);
@@ -37,6 +37,9 @@ fn render_model(tf: &mut Transform, rend: &Renderable) {
 		"normal_mat",
 		&model.try_inverse().expect("Could not inverse?").transpose(),
 	);
+
+	// Sets material properties to shader
+	rend.material.use_material();
 
 	mesh.draw(&shader);
 }
@@ -62,26 +65,24 @@ fn update_camera(
 }
 
 fn main() {
+	// Creates window
 	let mut window = Window::new(WindowSettings::default()).default_setup();
 	window.debug_message_callback(Some(error_callback));
 
+	// Create world and schedule for ECS
 	let mut world = legion::World::default();
 	let mut resources = Resources::default();
-	let mut schedule = Schedule::builder()
+	let mut render_schedule = Schedule::builder()
 		.add_thread_local(update_camera_system())
 		.add_thread_local(render_model_system())
 		.build();
 
-	let std_pass = Shader::new(
-		"shaders/deferred/geometry.vs",
-		"shaders/deferred/geometry.fs",
-	)
-	.unwrap();
-	let light_pass = Shader::new("shaders/deferred/light.vs", "shaders/deferred/light.fs").unwrap();
-	let cube_pass = Shader::new("shaders/advanced.vs", "shaders/advanced.fs").unwrap();
+	let geometry_pass = Shader::new("shaders/pbr/geometry.vs", "shaders/pbr/geometry.fs").unwrap();
+	let light_pass = Shader::new("shaders/pbr/light.vs", "shaders/pbr/light.fs").unwrap();
+	//let cube_pass = Shader::new("shaders/advanced.vs", "shaders/advanced.fs").unwrap();
 
 	let point = 0;
-	UniformBuffer::set_uniform_block(&std_pass, "Matrices", point);
+	UniformBuffer::set_uniform_block(&geometry_pass, "Matrices", point);
 	let ubo_matrices = match UniformBuffer::create_buffer(point, 2 * size_of::<Matrix4<f32>>()) {
 		Ok(e) => e,
 		Err(e) => {
@@ -92,7 +93,7 @@ fn main() {
 
 	let textur = Texture::from_file("texture1", "_textures/blank.png");
 
-	let mut loaded = match Loader::load("models/cube.obj") {
+	let mut loaded = match Loader::load("models/teapot.obj") {
 		Ok(m) => m,
 		Err(e) => {
 			panic!("Loader: {}", e);
@@ -102,7 +103,13 @@ fn main() {
 	mesh.textures.clear();
 	mesh.textures.push(textur);
 
-	let test_mat = Material::new(std_pass, vec![("albedo", vector!(1.0, 1.0, 1.0))], vec![]);
+	let cube_material = Material {
+		shader: geometry_pass,
+		albedo: vector!(199.0, 199.0, 199.0),
+		metallic: 1.0,
+		roughness: 1.0,
+		ao: 1.0,
+	};
 
 	let g_buffer = {
 		let (screen_width, screen_height) = (window.settings.width, window.settings.height);
@@ -115,25 +122,27 @@ fn main() {
 			type_: gl::FLOAT,
 		};
 
-		let tex_opt2 = TextureOptions {
+		/*let tex_opt2 = TextureOptions {
 			width: screen_width,
 			height: screen_height,
 			internal_format: gl::RGBA16F,
 			format: gl::RGBA,
 			type_: gl::UNSIGNED_BYTE,
-		};
+		};*/
 
 		let mut g_buffer = FrameBuffer::new();
 
 		// Create framebuffer textures from options
 		let g_position = Texture::for_framebuffer("position", 0, &tex_opt1);
 		let g_normal = Texture::for_framebuffer("normal", 1, &tex_opt1);
-		let g_albedo_spec = Texture::for_framebuffer("albedo_spec", 2, &tex_opt2);
+		let g_albedo = Texture::for_framebuffer("albedo", 2, &tex_opt1);
+		let g_material = Texture::for_framebuffer("material", 3, &tex_opt1);
 
 		// Add textures to framebuffer
 		g_buffer.add_texture(g_position);
 		g_buffer.add_texture(g_normal);
-		g_buffer.add_texture(g_albedo_spec);
+		g_buffer.add_texture(g_albedo);
+		g_buffer.add_texture(g_material);
 		g_buffer.draw_buffers();
 
 		// Create depth renderbuffer
@@ -144,18 +153,15 @@ fn main() {
 		g_buffer
 	};
 
-	let quad = Quad::new();
-	let cube = Cube::new();
-
-	//std_pass.use_program();
-	//light_pass.set_int("texture1", 0);
-
 	light_pass.use_program();
-	light_pass.set_int("gPosition", 0);
-	light_pass.set_int("gNormal", 1);
-	light_pass.set_int("gAlbedoSpec", 2);
+	light_pass.set_int("g_position", 0);
+	light_pass.set_int("g_normal", 1);
+	light_pass.set_int("g_albedo", 2);
+	light_pass.set_int("g_material", 3);
 
-	let player_position = vector![5.0, 4.5, -4.5];
+	let quad = Quad::new();
+
+	let player_position = vector![0.0, 2.5, -2.5];
 	let _player = world.push((
 		Transform {
 			position: player_position,
@@ -168,45 +174,60 @@ fn main() {
 		},
 	));
 
+	world.push((
+		Transform {
+			position: vector![0.0, 0.0, 0.0],
+			scale: vector![0.7, 0.7, 0.7],
+			..Transform::default()
+		},
+		Renderable {
+			material: cube_material.clone(),
+			mesh: mesh.clone(),
+		},
+	));
+
+	/*
+	// Creates cube array
 	let space = 4;
 	for x in 0..3 {
 		for y in 0..3 {
 			world.push((
 				Transform {
 					position: vector![(x * space) as f32, 0.0, (y * space) as f32],
-					//scale: vector![0.5, 0.5, 0.5],
 					..Transform::default()
 				},
 				Renderable {
-					material: test_mat.clone(),
+					material: cube_material.clone(),
 					mesh: mesh.clone(),
 				},
 			));
 		}
 	}
-
-	let mut rng = rand::thread_rng();
+	*/
 
 	// Creates lights
-	let space = 7;
-	for x in 0..3 {
-		for y in 0..3 {
-			world.push((
-				Transform {
-					position: vector![(x * space) as f32, 3.0, (y * space) as f32],
-					scale: vector![0.2, 0.2, 0.2],
-					..Transform::default()
-				},
-				Light {
-					color: vector![
-						rng.gen_range(0.0..5.0),
-						rng.gen_range(0.0..5.0),
-						rng.gen_range(0.0..5.0)
-					],
-					..Light::default()
-				},
-			));
-		}
+	let mut rng = rand::thread_rng();
+	for _ in 0..1 {
+		world.push((
+			Transform {
+				position: vector![
+					//rng.gen_range(-5.0..5.0),
+					//rng.gen_range(-3.0..3.0),
+					//rng.gen_range(-5.0..5.0)
+					3.0, 3.0, -2.0
+				],
+				scale: vector![0.2, 0.2, 0.2],
+				..Transform::default()
+			},
+			Light {
+				color: vector![
+					rng.gen_range(0.0..255.0) / 255.0,
+					rng.gen_range(0.0..255.0) / 255.0,
+					rng.gen_range(0.0..255.0) / 255.0
+				],
+				..Light::default()
+			},
+		));
 	}
 
 	while !window.should_close() {
@@ -224,25 +245,40 @@ fn main() {
 		g_buffer.bind();
 		frame.clear(gl::COLOR_BUFFER_BIT | gl::DEPTH_BUFFER_BIT);
 
-		schedule.execute(&mut world, &mut resources);
+		render_schedule.execute(&mut world, &mut resources);
+
+		/*
+		let mut query = <(&mut Transform, &Light)>::query();
+		for (tf, light) in query.iter_mut(&mut world) {
+			let mesh = &mesh;
+			let shader = &cube_pass;
+			let model = tf.get_matrix();
+
+			shader.use_program();
+			shader.set_mat4("model", &model);
+			shader.set_vector3("albedo", &light.color);
+
+			mesh.draw(&shader);
+		}
+		*/
 
 		// --------------
 		// 2. Lighting pass
 
+		// Enable blending
 		unsafe {
-			gl::Enable(gl::BLEND);
-			gl::BlendFunc(gl::ONE, gl::ONE);
+			//gl::Enable(gl::BLEND);
+			//gl::BlendFunc(gl::ONE, gl::ONE);
 			gl::DepthFunc(gl::LEQUAL);
 		}
 
-		// Unbind framebuffer makes OpenGL render to window
+		// Unbind gbuffer to render to default framebuffer.
 		g_buffer.unbind();
 		frame.clear(gl::COLOR_BUFFER_BIT); // | gl::DEPTH_BUFFER_BIT
 
 		// Use lighting shader
 		light_pass.use_program();
-		// Set framebuffer textures
-		g_buffer.activate_buffers();
+		g_buffer.activate_buffers(); // Set framebuffer textures
 
 		// Loop over every light in scene
 		let mut query = <(&mut Transform, &Light)>::query();
@@ -250,27 +286,26 @@ fn main() {
 			light_pass.set_vector3("light_pos", &tf.position);
 			light_pass.set_vector3("light_color", &light.color);
 
-			light_pass.set_float("linear", light.linear);
-			light_pass.set_float("quadratic", light.quadratic);
-
 			// FIXME: figure out way to get player position
 			// Player position is hardcoded for now.
-			light_pass.set_vector3("view_pos", &player_position);
+			light_pass.set_vector3("camera_pos", &player_position);
 
 			quad.draw();
 		}
 
+		// Disable blending
 		unsafe {
-			gl::Disable(gl::BLEND);
-			gl::DepthFunc(gl::LESS);
+			//gl::Disable(gl::BLEND);
+			//gl::DepthFunc(gl::LESS);
+			gl::DepthFunc(gl::LEQUAL);
+		}
 
-			// 2.5. copy content of geometry's depth buffer to default framebuffer's depth buffer
-			// ----------------------------------------------------------------------------------
+		// --------------
+		// 2.5 copy content of geometry's depth buffer to default framebuffer's depth buffer
+		unsafe {
 			gl::BindFramebuffer(gl::READ_FRAMEBUFFER, g_buffer.fbo);
 			gl::BindFramebuffer(gl::DRAW_FRAMEBUFFER, 0); // write to default framebuffer
-											  // blit to default framebuffer. Note that this may or may not work as the internal formats of both the FBO and default framebuffer have to match.
-											  // the internal formats are implementation defined. This works on all of my systems, but if it doesn't on yours you'll likely have to write to the
-											  // depth buffer in another shader stage (or somehow see to match the default framebuffer's internal format with the FBO's internal format).
+
 			gl::BlitFramebuffer(
 				0,
 				0,
@@ -284,16 +319,8 @@ fn main() {
 				gl::NEAREST,
 			);
 			gl::BindFramebuffer(gl::FRAMEBUFFER, 0);
-		}
 
-		// Draw lights as cubes
-		cube_pass.use_program();
-		let mut query = <(&mut Transform, &Light)>::query();
-		for (tf, light) in query.iter_mut(&mut world) {
-			cube_pass.set_mat4("model", &tf.get_matrix());
-			cube_pass.set_vector3("albedo", &light.color);
-
-			cube.draw();
+			gl::DepthFunc(gl::LESS);
 		}
 
 		window.post_loop();

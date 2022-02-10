@@ -79,7 +79,7 @@ impl FrameBuffer {
 
 	/// Binds all texture buffers to shader textures.
 	pub fn activate_buffers(&self) {
-		for (name, texture) in &self.buffers {
+		for (_, texture) in &self.buffers {
 			texture.activate();
 		}
 	}

@@ -2,7 +2,6 @@ use memoffset::offset_of;
 use nalgebra::{Vector2, Vector3};
 use std::{fmt, fmt::Display, mem::size_of, os::raw::c_void, ptr};
 
-use crate::util::to_cstring;
 use crate::wrapper::{
 	error::GLError,
 	render::core::{shader::Shader, Texture},
